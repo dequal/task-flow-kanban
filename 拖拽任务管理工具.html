@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <title>拖拽任务管理工具（完整版）</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: "Microsoft YaHei", sans-serif;
+      transition: all 0.3s ease;
+    }
+    /* 浅色主题（默认） */
+    :root {
+      --bg-color: #f5f7fa;
+      --column-bg: #ebecf0;
+      --task-bg: #ffffff;
+      --text-color: #333333;
+      --light-text: #666666;
+      --lighter-text: #999999;
+      --border-color: #dddddd;
+      --primary-color: #409eff;
+      --primary-hover: #338eef;
+      --high-priority: #f56c6c;
+      --medium-priority: #e6a23c;
+      --low-priority: #67c23a;
+      --delete-color: #ff4d4f;
+      --expire-bg: #fef0f0;
+      --expire-border: #f56c6c;
+      --expire-text: #f56c6c;
+      --btn-bg: #f5f7fa;
+      --btn-hover: #e8e8e8;
+      --drop-hover: #dcdde1; /* 拖拽悬浮时列背景色 */
+    }
+    /* 暗黑模式 */
+    .dark-mode {
+      --bg-color: #1a1a2e;
+      --column-bg: #24243e;
+      --task-bg: #2a2a42;
+      --text-color: #e0e0e0;
+      --light-text: #b0b0b0;
+      --lighter-text: #808080;
+      --border-color: #3a3a5a;
+      --primary-color: #4dabf7;
+      --primary-hover: #3899f5;
+      --high-priority: #ff6b6b;
+      --medium-priority: #ffc107;
+      --low-priority: #4ade80;
+      --delete-color: #ff7777;
+      --expire-bg: #422020;
+      --expire-border: #ff6b6b;
+      --expire-text: #ff6b6b;
+      --btn-bg: #24243e;
+      --btn-hover: #3a3a5a;
+      --drop-hover: #3a3a5a; /* 暗黑模式拖拽悬浮背景色 */
+    }
+    body {
+      background: var(--bg-color);
+      padding: 20px;
+      color: var(--text-color);
+    }
+    .app-header {
+      text-align: center;
+      margin-bottom: 20px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+    .theme-toggle {
+      padding: 8px 16px;
+      border: none;
+      border-radius: 6px;
+      background: var(--btn-bg);
+      color: var(--text-color);
+      cursor: pointer;
+      font-size: 14px;
+    }
+    .theme-toggle:hover {
+      background: var(--btn-hover);
+    }
+    .task-input {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    #taskInput {
+      width: 220px;
+      padding: 10px 15px;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      font-size: 14px;
+      background: var(--task-bg);
+      color: var(--text-color);
+    }
+    select, #deadlineTime {
+      padding: 10px;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      font-size: 14px;
+      background: var(--task-bg);
+      color: var(--text-color);
+    }
+    #addBtn {
+      padding: 10px 20px;
+      background: var(--primary-color);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    #addBtn:hover {
+      background: var(--primary-hover);
+    }
+    .board {
+      display: flex;
+      gap: 20px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+    }
+    .column {
+      width: 300px;
+      background: var(--column-bg);
+      border-radius: 8px;
+      padding: 15px;
+      transition: background 0.2s ease; /* 悬浮过渡 */
+    }
+    /* 拖拽悬浮到列时，列背景变化，提示可放置 */
+    .column.drag-over {
+      background: var(--drop-hover);
+    }
+    .column-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border-color);
+    }
+    .column h3 {
+      font-size: 16px;
+      color: var(--text-color);
+      margin: 0;
+    }
+    .column-btn {
+      padding: 4px 8px;
+      border: none;
+      border-radius: 4px;
+      background: var(--btn-bg);
+      color: var(--text-color);
+      cursor: pointer;
+      font-size: 12px;
+    }
+    .column-btn:hover {
+      background: var(--btn-hover);
+    }
+    .task-list {
+      min-height: 100px;
+      padding: 5px; /* 增加内边距，扩大可拖拽区域 */
+    }
+    .task {
+      background: var(--task-bg);
+      padding: 12px;
+      border-radius: 6px;
+      margin-bottom: 10px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      cursor: grab;
+      user-select: none;
+      border: 1px solid transparent;
+    }
+    .task:active { cursor: grabbing; }
+    .task.dragging { opacity: 0.5; }
+    .task.expire { border: 1px solid var(--expire-border); background: var(--expire-bg); }
+    .task-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+    .priority-tag {
+      font-size: 12px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      color: #fff;
+    }
+    .priority-high { background-color: var(--high-priority); }
+    .priority-medium { background-color: var(--medium-priority); }
+    .priority-low { background-color: var(--low-priority); }
+    .task-operate {
+      display: flex;
+      gap: 6px;
+    }
+    .edit, .del {
+      color: var(--lighter-text);
+      cursor: pointer;
+      font-size: 12px;
+    }
+    .edit:hover { color: var(--primary-color); }
+    .del:hover { color: var(--delete-color); }
+    .deadline {
+      font-size: 12px;
+      color: var(--light-text);
+      margin-top: 6px;
+    }
+    .deadline.expire-text { color: var(--expire-text); font-weight: bold; }
+    .remind-tip {
+      font-size: 11px;
+      color: var(--lighter-text);
+      margin-top: 4px;
+      display: none; /* 隐藏提前提醒详细字样 */
+    }
+    /* 编辑弹窗 */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.5);
+      z-index: 1000;
+      justify-content: center;
+      align-items: center;
+    }
+    .modal-content {
+      background: var(--task-bg);
+      padding: 20px;
+      border-radius: 8px;
+      width: 400px;
+      max-width: 90%;
+    }
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 10px;
+    }
+    .modal-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text-color);
+    }
+    .close-modal {
+      cursor: pointer;
+      font-size: 20px;
+      color: var(--lighter-text);
+    }
+    .close-modal:hover { color: var(--delete-color); }
+    .modal-form {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .modal-form input, .modal-form select {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      background: var(--task-bg);
+      color: var(--text-color);
+    }
+    .modal-btn-group {
+      display: flex;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .modal-btn {
+      flex: 1;
+      padding: 10px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    .cancel-btn {
+      background: var(--btn-bg);
+      color: var(--text-color);
+    }
+    .confirm-btn {
+      background: var(--primary-color);
+      color: white;
+    }
+    .cancel-btn:hover { background: var(--btn-hover); }
+    .confirm-btn:hover { background: var(--primary-hover); }
+  </style>
+</head>
+
+<body>
+  <div class="app-header">
+    <h1>📋 拖拽任务管理工具（完整版）</h1>
+    <button class="theme-toggle" id="themeToggle">切换暗黑模式</button>
+  </div>
+
+  <div class="task-input">
+    <input type="text" id="taskInput" placeholder="输入任务内容..." />
+    <select id="prioritySelect">
+      <option value="high">🔴 高优先级</option>
+      <option value="medium" selected>🟡 中优先级</option>
+      <option value="low">🟢 低优先级</option>
+    </select>
+    <select id="remindMin">
+      <option value="0">不提前提醒</option>
+      <option value="5">提前5分钟</option>
+      <option value="15" selected>提前15分钟</option>
+      <option value="30">提前30分钟</option>
+      <option value="60">提前60分钟</option>
+    </select>
+    <input type="datetime-local" id="deadlineTime">
+    <button id="addBtn">添加任务</button>
+  </div>
+
+  <div class="board">
+    <div class="column">
+      <div class="column-header">
+        <h3>📝 待处理</h3>
+        <button class="column-btn" onclick="sortByPriority('todo')">按优先级排序</button>
+      </div>
+      <div class="task-list" id="todo"></div>
+    </div>
+    <div class="column">
+      <div class="column-header">
+        <h3>⏳ 进行中</h3>
+        <button class="column-btn" onclick="sortByPriority('doing')">按优先级排序</button>
+      </div>
+      <div class="task-list" id="doing"></div>
+    </div>
+    <div class="column">
+      <div class="column-header">
+        <h3>✅ 已完成</h3>
+        <button class="column-btn" onclick="clearDoneTasks()">清空已完成</button>
+      </div>
+      <div class="task-list" id="done"></div>
+    </div>
+  </div>
+
+  <!-- 任务编辑弹窗 -->
+  <div class="modal" id="editModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div class="modal-title">编辑任务</div>
+        <div class="close-modal" onclick="closeModal()">&times;</div>
+      </div>
+      <div class="modal-form">
+        <input type="hidden" id="editTaskId">
+        <input type="text" id="editTaskContent" placeholder="输入任务内容...">
+        <select id="editPrioritySelect">
+          <option value="high">🔴 高优先级</option>
+          <option value="medium">🟡 中优先级</option>
+          <option value="low">🟢 低优先级</option>
+        </select>
+        <select id="editRemindMin">
+          <option value="0">不提前提醒</option>
+          <option value="5">提前5分钟</option>
+          <option value="15">提前15分钟</option>
+          <option value="30">提前30分钟</option>
+          <option value="60">提前60分钟</option>
+        </select>
+        <input type="datetime-local" id="editDeadlineTime">
+        <div class="modal-btn-group">
+          <button class="modal-btn cancel-btn" onclick="closeModal()">取消</button>
+          <button class="modal-btn confirm-btn" onclick="saveEditTask()">保存</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // 初始化数据，本地存储读取
+    let tasks = JSON.parse(localStorage.getItem("tasks")) || [];
+    // 申请浏览器通知权限
+    Notification.requestPermission();
+
+    // DOM元素获取
+    const columns = document.querySelectorAll(".column"); // 获取所有列（优化拖拽范围）
+    const lists = document.querySelectorAll(".task-list");
+    const taskInput = document.getElementById("taskInput");
+    const addBtn = document.getElementById("addBtn");
+    const prioritySelect = document.getElementById("prioritySelect");
+    const deadlineTime = document.getElementById("deadlineTime");
+    const remindMinSelect = document.getElementById("remindMin");
+    const themeToggle = document.getElementById("themeToggle");
+    const editModal = document.getElementById("editModal");
+    const editTaskId = document.getElementById("editTaskId");
+    const editTaskContent = document.getElementById("editTaskContent");
+    const editPrioritySelect = document.getElementById("editPrioritySelect");
+    const editRemindMin = document.getElementById("editRemindMin");
+    const editDeadlineTime = document.getElementById("editDeadlineTime");
+
+    // 初始化：检查暗黑模式、渲染任务
+    window.addEventListener("load", () => {
+      // 读取本地存储的主题设置
+      if (localStorage.getItem("darkMode") === "true") {
+        document.body.classList.add("dark-mode");
+        themeToggle.textContent = "切换浅色模式";
+      }
+      renderTasks();
+      checkRemind();
+    });
+
+    // 1. 暗黑模式切换
+    themeToggle.addEventListener("click", () => {
+      document.body.classList.toggle("dark-mode");
+      const isDark = document.body.classList.contains("dark-mode");
+      localStorage.setItem("darkMode", isDark);
+      themeToggle.textContent = isDark ? "切换浅色模式" : "切换暗黑模式";
+    });
+
+    // 2. 渲染任务（支持按优先级排序）
+    function renderTasks() {
+      lists.forEach(list => list.innerHTML = "");
+      const now = Date.now();
+
+      tasks.forEach(task => {
+        const div = document.createElement("div");
+        div.classList.add("task");
+        div.draggable = true;
+        div.dataset.id = task.id;
+
+        // 过期任务标红
+        let isExpire = task.deadline && new Date(task.deadline).getTime() < now;
+        if(isExpire) div.classList.add("expire");
+
+        // 优先级文本（标题添加优先级标记）
+        let priorityMark = {
+          high: "【🔴高】",
+          medium: "【🟡中】",
+          low: "【🟢低】"
+        }[task.priority];
+        let priorityText = {
+          high: "高优先级",
+          medium: "中优先级",
+          low: "低优先级"
+        }[task.priority];
+
+        // 提前提醒简化标记（仅显示图标，不显示文字）
+        let remindTip = task.remindMin > 0 ? `🔔` : '';
+
+        // 截止时间显示
+        let deadlineHtml = task.deadline 
+          ? `
+              ⏰ 截止：${task.deadline} ${isExpire?'【已过期】':''}
+             ` 
+          : '';
+
+        // 任务卡片内容（保留删除功能，标题添加优先级标记）
+        div.innerHTML = `
+          <div class="task-top">
+            <span class="priority-tag priority-${task.priority}">${priorityText}</span>
+            <div class="task-operate">
+              <span class="edit" onclick="editTask(${task.id})">编辑</span>
+              <span class="del" onclick="deleteTask(${task.id})">删除</span>
+            </div>
+          </div>
+          <div class="task-content">${priorityMark}${task.content} ${remindTip}</div>
+          ${deadlineHtml}
+        `;
+
+        // 拖拽事件
+        div.addEventListener("dragstart", () => div.classList.add("dragging"));
+        div.addEventListener("dragend", () => {
+          div.classList.remove("dragging");
+          // 移除所有列的悬浮样式
+          columns.forEach(col => col.classList.remove("drag-over"));
+          saveTasks();
+        });
+
+        // 插入对应列
+        document.getElementById(task.status).appendChild(div);
+      });
+    }
+
+    // 3. 拖拽逻辑优化（核心修改：拖拽到列任意位置即可分类）
+    columns.forEach(column => {
+      // 拖拽悬浮到列时，允许放置并添加悬浮提示
+      column.addEventListener("dragover", e => {
+        e.preventDefault(); // 允许放置
+        column.classList.add("drag-over"); // 列背景变化，提示可放置
+      });
+      // 拖拽离开列时，移除悬浮提示
+      column.addEventListener("dragleave", () => {
+        column.classList.remove("drag-over");
+      });
+      // 拖拽放下时，将任务添加到当前列
+      column.addEventListener("drop", e => {
+        e.preventDefault();
+        const dragging = document.querySelector(".dragging");
+        if(!dragging) return;
+        // 找到当前列的任务列表，将任务添加进去（无需拖拽到顶部）
+        const taskList = column.querySelector(".task-list");
+        taskList.appendChild(dragging);
+        // 更新任务状态
+        const taskId = dragging.dataset.id;
+        const newStatus = taskList.id;
+        tasks = tasks.map(t => t.id == taskId ? {...t, status: newStatus} : t);
+        // 移除悬浮样式
+        column.classList.remove("drag-over");
+        saveTasks();
+        renderTasks();
+      });
+    });
+
+    // 4. 添加任务
+    function addTask() {
+      const content = taskInput.value.trim();
+      if(!content) return;
+      const newTask = {
+        id: Date.now(),
+        content: content,
+        status: "todo", // 默认待处理
+        priority: prioritySelect.value,
+        deadline: deadlineTime.value || '',
+        remindMin: parseInt(remindMinSelect.value),
+        reminded: false,      // 是否已发截止提醒
+        preReminded: false    // 是否已发提前预提醒
+      };
+      tasks.push(newTask);
+      // 清空输入框
+      taskInput.value = "";
+      deadlineTime.value = "";
+      // 重新渲染+保存
+      renderTasks();
+      saveTasks();
+    }
+    addBtn.addEventListener("click", addTask);
+    taskInput.addEventListener("keypress", e => e.key === "Enter" && addTask());
+
+    // 5. 删除任务（保留功能，不改动）
+    window.deleteTask = function(id) {
+      tasks = tasks.filter(t => t.id != id);
+      renderTasks();
+      saveTasks();
+    };
+
+    // 6. 任务编辑（弹窗）
+    window.editTask = function(id) {
+      // 找到当前任务
+      const task = tasks.find(t => t.id == id);
+      if(!task) return;
+      // 填充弹窗表单
+      editTaskId.value = task.id;
+      editTaskContent.value = task.content;
+      editPrioritySelect.value = task.priority;
+      editRemindMin.value = task.remindMin;
+      editDeadlineTime.value = task.deadline || '';
+      // 显示弹窗
+      editModal.style.display = "flex";
+    };
+
+    // 关闭编辑弹窗
+    window.closeModal = function() {
+      editModal.style.display = "none";
+    };
+
+    // 保存编辑的任务
+    window.saveEditTask = function() {
+      const id = parseInt(editTaskId.value);
+      const content = editTaskContent.value.trim();
+      if(!content) return;
+      // 更新任务信息
+      tasks = tasks.map(t => {
+        if(t.id == id) {
+          return {
+            ...t,
+            content: content,
+            priority: editPrioritySelect.value,
+            remindMin: parseInt(editRemindMin.value),
+            deadline: editDeadlineTime.value || '',
+            // 编辑后重置提醒状态（避免已提醒过但修改时间后不重新提醒）
+            reminded: false,
+            preReminded: false
+          };
+        }
+        return t;
+      });
+      // 关闭弹窗+重新渲染+保存
+      closeModal();
+      renderTasks();
+      saveTasks();
+    };
+
+    // 7. 按优先级排序（高>中>低）
+    window.sortByPriority = function(columnId) {
+      // 筛选当前列的任务，按优先级排序
+      const columnTasks = tasks.filter(t => t.status == columnId);
+      // 排序规则：high(高) > medium(中) > low(低)
+      columnTasks.sort((a, b) => {
+        const priorityOrder = { high: 3, medium: 2, low: 1 };
+        return priorityOrder[b.priority] - priorityOrder[a.priority];
+      });
+      // 重新组合任务数组（其他列任务不变，当前列按排序后排列）
+      tasks = tasks.filter(t => t.status != columnId).concat(columnTasks);
+      // 渲染+保存
+      renderTasks();
+      saveTasks();
+    };
+
+    // 8. 清空已完成任务
+    window.clearDoneTasks = function() {
+      tasks = tasks.filter(t => t.status != "done");
+      renderTasks();
+      saveTasks();
+    };
+
+    // 9. 定时提醒（提前预提醒+截止提醒）
+    function checkRemind() {
+      const now = Date.now();
+      const MS_PER_MIN = 60 * 1000;
+
+      tasks.forEach(task => {
+        if(!task.deadline) return;
+        const deadlineTimeStamp = new Date(task.deadline).getTime();
+        const preRemindTime = deadlineTimeStamp - task.remindMin * MS_PER_MIN;
+
+        // 提前预提醒（未提醒过、到达预提醒时间、未到截止时间）
+        if(task.remindMin > 0 && !task.preReminded && now >= preRemindTime && now < deadlineTimeStamp) {
+          new Notification("任务即将到期", {
+            body: `🔔 还有${task.remindMin}分钟：${task.content}`,
+            icon: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='50' font-size='80'>⏰</text></svg>"
+          });
+          task.preReminded = true;
+        }
+
+        // 截止时间提醒（未提醒过、到达截止时间）
+        if(!task.reminded && now >= deadlineTimeStamp) {
+          new Notification("任务已截止", {
+            body: `⏰ 任务已到截止时间：${task.content}`,
+            icon: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='50' font-size='80'>⏰</text></svg>"
+          });
+          task.reminded = true;
+        }
+      });
+
+      saveTasks();
+      renderTasks();
+    }
+
+    // 每30秒轮询检查一次提醒
+    setInterval(checkRemind, 30000);
+
+    // 10. 本地存储保存
+    function saveTasks() {
+      localStorage.setItem("tasks", JSON.stringify(tasks));
+    }
+  </script>
+</body>
+</html>
